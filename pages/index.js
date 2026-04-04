@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // Connexion à ton Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function ArtisanApp() {
   const [artisans, setArtisans] = useState([]);
@@ -24,7 +23,9 @@ export default function ArtisanApp() {
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (!error && data) setArtisans(data);
+    if (!error && data) {
+      setArtisans(data);
+    }
     setLoading(false);
   }
 
