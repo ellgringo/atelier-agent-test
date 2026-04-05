@@ -31,7 +31,6 @@ export default function AgentArtisan() {
       setRecognition(rec);
     }
   }, []);
-
   async function envoyerMessage(e) {
     e.preventDefault();
     if (!message.trim()) return;
@@ -39,10 +38,27 @@ export default function AgentArtisan() {
     setLoading(true);
     setReponse('');
     
-    setTimeout(() => {
-      setReponse("🤖 C'est noté ! Je prépare le devis pour : " + message);
+    try {
+      const res = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        setReponse(data.reponse);
+      } else {
+        setReponse("❌ Erreur : " + data.error);
+      }
+    } catch (error) {
+      setReponse("❌ Impossible de joindre l'IA.");
+    } finally {
       setLoading(false);
       setMessage('');
+    }
+  }
     }, 1500);
   }
 
