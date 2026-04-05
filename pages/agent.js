@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router'; // AJOUT IMPORTANT
 
 export default function AgentArtisan() {
+  const router = useRouter(); // AJOUT IMPORTANT
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [reponse, setReponse] = useState('');
@@ -47,18 +49,26 @@ export default function AgentArtisan() {
       const data = await res.json();
       
       if (data.success) {
-        setReponse(data.reponse);
+        // MAGIE : ON REDIRIGE VERS LE DEVIS ! 
+        const { nom_client, metier, montant, description } = data.analyse;
+        router.push({
+          pathname: '/devis',
+          query: { 
+            nom: nom_client, 
+            metier: metier, 
+            montant: montant, 
+            desc: description 
+          }
+        });
       } else {
         setReponse("❌ Erreur : " + (data.error || "Problème API"));
+        setLoading(false); // On arrête le chargement seulement s'il y a une erreur
       }
     } catch (error) {
       setReponse("❌ Impossible de joindre l'IA.");
-    } finally {
       setLoading(false);
-      setMessage('');
-    }
+    } 
   }
-
   function toggleEcoute() {
     if (!recognition) {
       alert("Reconnaissance vocale non supportée sur ce navigateur");
