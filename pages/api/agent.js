@@ -15,4 +15,32 @@ export default async function handler(req, res) {
       model: 'gpt-4o-mini',
       messages: [
         {
-          role: 'system
+          role: 'system',
+          content: `Tu analyses les messages d'artisans français. Extrait :
+- NOM_CLIENT (ex: Dupont)
+- METIER (plombier, maçon...)
+- MONTANT (chiffre)
+- DESCRIPTION (travaux)
+
+Réponds JSON pur : {"nom_client":"Dupont","metier":"plombier","montant":450,"description":"Changement chaudière"}`
+        },
+        { role: 'user', content: message }
+      ],
+      temperature: 0
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content);
+    
+    res.json({ 
+      success: true,
+      analyse: result,
+      reponse: `✅ Devis ${result.montant || '?'}€ pour ${result.nom_client || 'client'} (${result.metier})`
+    });
+
+  } catch (error) {
+    res.json({ 
+      success: false,
+      reponse: '🤖 IA analyse : ' + message.substring(0, 50) + '...'
+    });
+  }
+}
