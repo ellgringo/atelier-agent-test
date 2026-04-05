@@ -57,7 +57,7 @@ export default function Login() {
 
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
-            abel style={{ display: 'block', marginBottom: '8px', color: '#7f8c8d' }}>Email</label>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#7f8c8d' }}>Email</label>
             <input 
               type="email" 
               value={email} 
@@ -68,7 +68,7 @@ export default function Login() {
           </div>
           
           <div>
-            abel style={{ display: 'block', marginBottom: '8px', color: '#7f8c8d' }}>Mot de passe</label>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#7f8c8d' }}>Mot de passe</label>
             <input 
               type="password" 
               value={password} 
