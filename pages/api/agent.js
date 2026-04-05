@@ -38,9 +38,10 @@ Réponds JSON pur : {"nom_client":"Dupont","metier":"plombier","montant":450,"de
     });
 
   } catch (error) {
+    console.error("ERREUR OPENAI:", error); // ça va s'afficher dans les logs Vercel
     res.json({ 
       success: false,
-      reponse: '🤖 IA analyse : ' + message.substring(0, 50) + '...'
+      error: error.message || 'Erreur inconnue API'
     });
   }
 }
