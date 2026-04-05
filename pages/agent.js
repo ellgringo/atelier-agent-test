@@ -1,12 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function AgentArtisan() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [reponse, setReponse] = useState('');
   const [ecoute, setEcoute] = useState(false);
+  const [recognition, setRecognition] = useState(null);
 
-  // Fonction pour envoyer le message à l'IA
+  // Initialiser la reconnaissance vocale seulement côté client
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const rec = new SpeechRecognition();
+      rec.lang = 'fr-FR';
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      
+      rec.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage(transcript);
+        setEcoute(false);
+      };
+      
+      rec.onerror = () => {
+        setEcoute(false);
+        alert("Erreur de reconnaissance vocale. Réessaie !");
+      };
+      
+      setRecognition(rec);
+    }
+  }, []);
+
   async function envoyerMessage(e) {
     e.preventDefault();
     if (!message.trim()) return;
@@ -21,44 +45,19 @@ export default function AgentArtisan() {
     }, 1500);
   }
 
-  // Fonction pour démarrer/arrêter l'écoute vocale
-  async function toggleEcoute() {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert("Désolé, la reconnaissance vocale n'est pas supportée sur ce navigateur");
+  function toggleEcoute() {
+    if (!recognition) {
+      alert("Reconnaissance vocale non supportée sur ce navigateur");
       return;
     }
 
     if (ecoute) {
-      // Arrêter l'écoute
       recognition.stop();
       setEcoute(false);
     } else {
-      // Démarrer l'écoute
       recognition.start();
       setEcoute(true);
     }
-  }
-
-  // Reconnaissance vocale
-  const recognition = typeof window !== 'undefined' ? 
-    new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
-  
-  if (recognition) {
-    recognition.lang = 'fr-FR';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setMessage(transcript);
-      setEcoute(false);
-      recognition.stop();
-    };
-
-    recognition.onerror = () => {
-      setEcoute(false);
-      alert("Erreur de reconnaissance vocale. Réessaie !");
-    };
   }
 
   return (
@@ -87,7 +86,8 @@ export default function AgentArtisan() {
         marginBottom: '20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '15px'
+        gap: '15px',
+        overflowY: 'auto'
       }}>
         
         <div style={{ background: '#e8f4f8', padding: '15px', borderRadius: '12px 12px 12px 0', alignSelf: 'flex-start', maxWidth: '85%' }}>
@@ -107,7 +107,6 @@ export default function AgentArtisan() {
         )}
       </div>
 
-      {/* Zone de saisie avec micro */}
       <form onSubmit={envoyerMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         <div style={{ 
           display: 'flex', 
@@ -136,7 +135,7 @@ export default function AgentArtisan() {
           <button 
             type="button"
             onClick={toggleEcoute}
-            disabled={loading}
+            disabled={loading || !recognition}
             style={{
               background: ecoute ? '#e74c3c' : '#3498db',
               color: 'white',
@@ -144,11 +143,12 @@ export default function AgentArtisan() {
               width: '45px',
               height: '45px',
               borderRadius: '50%',
-              cursor: 'pointer',
+              cursor: recognition ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '20px'
+              fontSize: '20px',
+              opacity: recognition ? 1 : 0.5
             }}
             title="Dictée vocale"
           >
@@ -172,10 +172,6 @@ export default function AgentArtisan() {
           Générer 📄
         </button>
       </form>
-
-    </div>
-  );
-}
 
     </div>
   );
