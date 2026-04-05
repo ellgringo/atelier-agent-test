@@ -69,7 +69,7 @@ export default function AgentArtisan() {
       const res = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message: message, userId: session?.user?.id })
       });
 
       const data = await res.json();
