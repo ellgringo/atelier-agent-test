@@ -4,8 +4,9 @@ export default function AgentArtisan() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [reponse, setReponse] = useState('');
+  const [ecoute, setEcoute] = useState(false);
 
-  // Fonction pour envoyer le message à l'IA (qu'on codera juste après)
+  // Fonction pour envoyer le message à l'IA
   async function envoyerMessage(e) {
     e.preventDefault();
     if (!message.trim()) return;
@@ -13,12 +14,51 @@ export default function AgentArtisan() {
     setLoading(true);
     setReponse('');
     
-    // Pour l'instant, on simule l'IA qui réfléchit
     setTimeout(() => {
       setReponse("🤖 C'est noté ! Je prépare le devis pour : " + message);
       setLoading(false);
       setMessage('');
     }, 1500);
+  }
+
+  // Fonction pour démarrer/arrêter l'écoute vocale
+  async function toggleEcoute() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("Désolé, la reconnaissance vocale n'est pas supportée sur ce navigateur");
+      return;
+    }
+
+    if (ecoute) {
+      // Arrêter l'écoute
+      recognition.stop();
+      setEcoute(false);
+    } else {
+      // Démarrer l'écoute
+      recognition.start();
+      setEcoute(true);
+    }
+  }
+
+  // Reconnaissance vocale
+  const recognition = typeof window !== 'undefined' ? 
+    new (window.SpeechRecognition || window.webkitSpeechRecognition)() : null;
+  
+  if (recognition) {
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setMessage(transcript);
+      setEcoute(false);
+      recognition.stop();
+    };
+
+    recognition.onerror = () => {
+      setEcoute(false);
+      alert("Erreur de reconnaissance vocale. Réessaie !");
+    };
   }
 
   return (
@@ -33,13 +73,11 @@ export default function AgentArtisan() {
       background: '#f4f7f6'
     }}>
       
-      {/* En-tête de l'application */}
       <div style={{ textAlign: 'center', marginBottom: '30px', marginTop: '20px' }}>
         <h1 style={{ color: '#2c3e50', fontSize: '24px', margin: '0' }}>🛠️ Ton Assistant IA</h1>
-        <p style={{ color: '#7f8c8d', margin: '5px 0' }}>Dis-moi ce que tu veux facturer</p>
+        <p style={{ color: '#7f8c8d', margin: '5px 0' }}>Dicte-moi ce que tu veux facturer</p>
       </div>
 
-      {/* Zone de discussion (Chat) */}
       <div style={{ 
         flex: 1, 
         background: 'white', 
@@ -53,7 +91,7 @@ export default function AgentArtisan() {
       }}>
         
         <div style={{ background: '#e8f4f8', padding: '15px', borderRadius: '12px 12px 12px 0', alignSelf: 'flex-start', maxWidth: '85%' }}>
-          Bonjour ! Que puis-je faire pour toi aujourd'hui ? Un devis ? Une facture ?
+          Bonjour ! Dicte-moi un devis ou une facture. Ex: "Devis 500€ peinture Dupont"
         </div>
 
         {reponse && (
@@ -64,44 +102,80 @@ export default function AgentArtisan() {
 
         {loading && (
           <div style={{ alignSelf: 'center', color: '#95a5a6', fontStyle: 'italic' }}>
-            L'IA réfléchit... ⏳
+            L'IA prépare ton document... ⏳
           </div>
         )}
       </div>
 
-      {/* Zone de saisie du message */}
-      <form onSubmit={envoyerMessage} style={{ display: 'flex', gap: '10px' }}>
-        <input 
-          type="text" 
-          placeholder="Ex: Devis 500€ peinture pour M. Dupont..." 
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          disabled={loading}
-          style={{ 
-            flex: 1, 
-            padding: '15px', 
-            borderRadius: '25px', 
-            border: '1px solid #ddd',
-            fontSize: '16px',
-            outline: 'none'
-          }}
-        />
+      {/* Zone de saisie avec micro */}
+      <form onSubmit={envoyerMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ 
+          display: 'flex', 
+          flex: 1, 
+          position: 'relative',
+          background: 'white',
+          borderRadius: '25px',
+          padding: '5px 15px',
+          border: '1px solid #ddd',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          <input 
+            type="text" 
+            placeholder="Dicte ou tape ton message..." 
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            disabled={loading}
+            style={{ 
+              flex: 1, 
+              padding: '12px 0', 
+              border: 'none', 
+              outline: 'none',
+              fontSize: '16px'
+            }}
+          />
+          <button 
+            type="button"
+            onClick={toggleEcoute}
+            disabled={loading}
+            style={{
+              background: ecoute ? '#e74c3c' : '#3498db',
+              color: 'white',
+              border: 'none',
+              width: '45px',
+              height: '45px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px'
+            }}
+            title="Dictée vocale"
+          >
+            {ecoute ? '⏹️' : '🎤'}
+          </button>
+        </div>
         <button 
           type="submit" 
           disabled={loading || !message.trim()}
           style={{ 
-            background: message.trim() ? '#3498db' : '#bdc3c7', 
+            background: message.trim() ? '#27ae60' : '#bdc3c7', 
             color: 'white', 
             border: 'none', 
             padding: '0 25px', 
             borderRadius: '25px', 
             cursor: message.trim() ? 'pointer' : 'not-allowed',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            height: '55px'
           }}
         >
-          Envoyer
+          Générer 📄
         </button>
       </form>
+
+    </div>
+  );
+}
 
     </div>
   );
