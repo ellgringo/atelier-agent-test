@@ -25,16 +25,18 @@ export default function Dashboard() {
 
   async function chargerHistorique(userId) {
     try {
+      // ON ENLÈVE LA RESTRICTION "eq('artisan_id', userId)" QUI BLOQUAIT LA LECTURE
       const { data, error } = await supabase
         .from('devis')
         .select('*')
-        .eq('artisan_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error("Erreur chargement:", error);
       } else if (data) {
-        setHistorique(data);
+        // On filtre manuellement côté client pour être 100% sûr
+        const mesDevis = data.filter(devis => devis.artisan_id === userId);
+        setHistorique(mesDevis);
       }
     } catch (err) {
       console.error("Erreur serveur:", err);
@@ -51,20 +53,16 @@ export default function Dashboard() {
   const relancerDevis = (devisItem) => {
     let lignesData = "";
     
-    // Logique blindée pour relire la description (qu'elle soit un JSON ou un simple texte)
     try {
       if (devisItem.description && devisItem.description.trim().startsWith('[')) {
-        // C'est un nouveau devis (format tableau)
-        JSON.parse(devisItem.description); // Test de validité
+        JSON.parse(devisItem.description);
         lignesData = devisItem.description;
       } else {
-        // C'est un ancien devis (format texte simple)
         lignesData = JSON.stringify([
           { description: devisItem.description || "Prestation globale", prix: devisItem.montant || 0 }
         ]);
       }
     } catch (e) {
-      // En cas d'erreur de lecture, on fait une ligne par défaut
       lignesData = JSON.stringify([
         { description: "Prestation globale", prix: devisItem.montant || 0 }
       ]);
@@ -96,7 +94,6 @@ export default function Dashboard() {
         <p style={{ margin: 0 }}>Bienvenue, <strong>{session.user.email}</strong> !</p>
       </div>
 
-      {/* BOUTONS D'ACTION */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
         <button 
           onClick={() => router.push('/agent')} 
@@ -111,13 +108,12 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* HISTORIQUE RÉPARÉ */}
       <h2>📂 Historique de tes devis</h2>
       <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
         {loading ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Chargement de l'historique...</p>
-        ) : historique && historique.length === 0 ? (
+        ) : historique.length === 0 ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Aucun devis généré pour le moment.</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
