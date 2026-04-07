@@ -12,16 +12,49 @@ export default function Agent() {
   const [session, setSession] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push('/login');
-      } else {
-        setSession(session);
-      }
+      if (!session) router.push('/login');
+      else setSession(session);
     });
   }, [router]);
+
+  // FONCTION POUR ÉCOUTER LA VOIX
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Ton navigateur ne supporte pas la dictée vocale. Utilise Chrome ou Safari.");
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setMessage((prev) => prev + " " + transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Erreur de micro:", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
 
   const handleEnvoyer = async (e) => {
     e.preventDefault();
@@ -76,13 +109,40 @@ export default function Agent() {
         <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Dis-moi ce que tu veux facturer !</h2>
         
         <form onSubmit={handleEnvoyer} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <textarea 
-            rows="4"
-            placeholder="Ex: Fais un devis pour Dupont, plombier, 500€ pour une fuite."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            style={{ padding: '15px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px' }}
-          />
+          
+          <div style={{ position: 'relative' }}>
+            <textarea 
+              rows="4"
+              placeholder="Ex: Fais un devis pour Dupont, plombier, 500€ pour une fuite."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
+            />
+            {/* BOUTON MICROPHONE INTÉGRÉ */}
+            <button 
+              type="button" 
+              onClick={startListening}
+              style={{
+                position: 'absolute',
+                bottom: '10px',
+                right: '10px',
+                background: isListening ? '#e74c3c' : '#f1f2f6',
+                color: isListening ? 'white' : '#2c3e50',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                fontSize: '20px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+              }}
+              title="Dicter à la voix"
+            >
+              {isListening ? '🔴' : '🎙️'}
+            </button>
+          </div>
+
+          {isListening && <p style={{ color: '#e74c3c', fontSize: '14px', textAlign: 'center', margin: '0' }}>Je t'écoute...</p>}
 
           <button 
             type="submit" 
