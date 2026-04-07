@@ -13,14 +13,14 @@ export default async function handler(req, res) {
     const OpenAI = (await import('openai')).default;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // ON MET DES EXEMPLES POUR FORCER L'IA À COMPRENDRE
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
+          // L'ERREUR ÉTAIT ICI : J'ai rajouté le mot JSON qui est obligatoire pour OpenAI
           content: `Tu es un assistant pour artisan qui génère des lignes de devis.
-          Tu DOIS extraire chaque prestation et son prix séparément.
+          Tu DOIS extraire chaque prestation et son prix séparément et répondre UNIQUEMENT au format JSON.
 
           Exemple 1 :
           User: "Devis pour Dubois. Peinture 400€, déplacement 50€ et nettoyage 150€."
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
           User: "Je suis maçon, fais un devis de 1000 euros pour faire le mur de monsieur Martin."
           Toi: {"nom_client":"Martin","lignes":[{"description":"Construction du mur","prix":1000}]}
 
-          RÉPONDS TOUJOURS DANS CE FORMAT EXACT.`
+          RÉPONDS TOUJOURS DANS CE FORMAT JSON EXACT.`
         },
         { role: 'user', content: prompt || "Message vide" }
       ],
@@ -40,7 +40,6 @@ export default async function handler(req, res) {
 
     const result = JSON.parse(completion.choices[0].message.content);
 
-    // Sécurité: si l'IA s'est plantée, on crée au moins une ligne par défaut
     let lignesFinales = result.lignes || [];
     if (!Array.isArray(lignesFinales) || lignesFinales.length === 0) {
        lignesFinales = [{ description: result.description || "Prestation globale", prix: result.montant || 0 }];
@@ -60,7 +59,6 @@ export default async function handler(req, res) {
         });
     }
     
-    // Envoi des lignes au site web
     res.status(200).json({ 
       success: true,
       analyse: {
