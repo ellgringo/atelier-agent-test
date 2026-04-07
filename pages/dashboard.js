@@ -32,12 +32,12 @@ export default function Dashboard() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Erreur de chargement:", error);
+        console.error("Erreur chargement:", error);
       } else if (data) {
         setHistorique(data);
       }
     } catch (err) {
-      console.error("Erreur inattendue:", err);
+      console.error("Erreur serveur:", err);
     } finally {
       setLoading(false);
     }
@@ -49,14 +49,24 @@ export default function Dashboard() {
   };
 
   const relancerDevis = (devisItem) => {
-    // Si c'est un nouveau devis avec le tableau JSON
     let lignesData = "";
-    if (devisItem.description && devisItem.description.startsWith('[')) {
-      lignesData = devisItem.description;
-    } else {
-      // Ancien devis (avant la mise à jour)
+    
+    // Logique blindée pour relire la description (qu'elle soit un JSON ou un simple texte)
+    try {
+      if (devisItem.description && devisItem.description.trim().startsWith('[')) {
+        // C'est un nouveau devis (format tableau)
+        JSON.parse(devisItem.description); // Test de validité
+        lignesData = devisItem.description;
+      } else {
+        // C'est un ancien devis (format texte simple)
+        lignesData = JSON.stringify([
+          { description: devisItem.description || "Prestation globale", prix: devisItem.montant || 0 }
+        ]);
+      }
+    } catch (e) {
+      // En cas d'erreur de lecture, on fait une ligne par défaut
       lignesData = JSON.stringify([
-        { description: devisItem.description || "Prestation globale", prix: devisItem.montant }
+        { description: "Prestation globale", prix: devisItem.montant || 0 }
       ]);
     }
 
@@ -64,11 +74,8 @@ export default function Dashboard() {
       pathname: '/devis',
       query: { 
         nom: devisItem.nom_client, 
-        metier: devisItem.metier, 
-        montant: devisItem.montant, 
-        desc: devisItem.description,
-        total: devisItem.montant, // Pour la nouvelle version de devis.js
-        lignes: lignesData        // Pour la nouvelle version de devis.js
+        total: devisItem.montant,
+        lignes: lignesData
       }
     });
   };
@@ -78,7 +85,6 @@ export default function Dashboard() {
   return (
     <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* En-tête */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{ margin: 0 }}>🏠 Tableau de bord</h1>
         <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer' }}>
@@ -90,16 +96,14 @@ export default function Dashboard() {
         <p style={{ margin: 0 }}>Bienvenue, <strong>{session.user.email}</strong> !</p>
       </div>
 
-      {/* NOUVELLE ZONE DES BOUTONS */}
+      {/* BOUTONS D'ACTION */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
-        {/* BOUTON ASSISTANT IA */}
         <button 
           onClick={() => router.push('/agent')} 
           style={{ flex: 1, background: '#3498db', color: 'white', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '18px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
           ✨ Créer un devis avec l'IA
         </button>
 
-        {/* NOUVEAU BOUTON PROFIL */}
         <button 
           onClick={() => router.push('/profil')} 
           style={{ flex: 1, background: '#2c3e50', color: 'white', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '18px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
@@ -107,27 +111,27 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* HISTORIQUE */}
+      {/* HISTORIQUE RÉPARÉ */}
       <h2>📂 Historique de tes devis</h2>
       <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
         {loading ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Chargement de l'historique...</p>
-        ) : historique.length === 0 ? (
+        ) : historique && historique.length === 0 ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Aucun devis généré pour le moment.</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {historique.map((item) => (
               <li key={item.id} style={{ borderBottom: '1px solid #eee', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <strong style={{ fontSize: '16px', color: '#2c3e50' }}>{item.nom_client}</strong>
+                  <strong style={{ fontSize: '16px', color: '#2c3e50' }}>{item.nom_client || 'Client inconnu'}</strong>
                   <br />
                   <span style={{ color: '#7f8c8d', fontSize: '14px' }}>
-                    {new Date(item.created_at).toLocaleDateString('fr-FR')} - {item.metier}
+                    {new Date(item.created_at).toLocaleDateString('fr-FR')}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <span style={{ fontWeight: 'bold', color: '#27ae60', fontSize: '16px' }}>{item.montant} €</span>
+                  <span style={{ fontWeight: 'bold', color: '#27ae60', fontSize: '16px' }}>{item.montant || 0} €</span>
                   <button 
                     onClick={() => relancerDevis(item)}
                     style={{ background: '#f1f2f6', border: '1px solid #dcdde1', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', color: '#2c3e50', fontWeight: 'bold' }}>
