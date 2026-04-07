@@ -21,41 +21,46 @@ export default function Agent() {
     });
   }, [router]);
 
-  // FONCTION POUR ÉCOUTER LA VOIX
+  // FONCTION MICROPHONE SÉCURISÉE
   const startListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert("Ton navigateur ne supporte pas la dictée vocale. Utilise Chrome ou Safari.");
-      return;
+    try {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        alert("Ton navigateur ne supporte pas le micro (Essaie sur Google Chrome).");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'fr-FR';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage((prev) => prev ? prev + " " + transcript : transcript);
+      };
+
+      recognition.onerror = (event) => {
+        alert("Erreur micro: " + event.error + " (Vérifie que tu as autorisé le micro en haut de ton navigateur)");
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (error) {
+      alert("Impossible de lancer le micro : " + error.message);
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.lang = 'fr-FR';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setMessage((prev) => prev + " " + transcript);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Erreur de micro:", event.error);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
   };
 
+  // ENVOI À L'IA
   const handleEnvoyer = async (e) => {
     e.preventDefault();
     if (!message) return;
@@ -63,7 +68,8 @@ export default function Agent() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      // C'EST ICI LA CORRECTION : on appelle /api/agent (ton vrai fichier)
+      const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -85,11 +91,12 @@ export default function Agent() {
           }
         });
       } else {
-        alert("L'IA a eu un petit problème de réflexion.");
+        alert("L'IA a répondu mais il manque des infos. Vérifie ton fichier API.");
+        console.error("Réponse de l'IA:", data);
       }
     } catch (error) {
-      console.error(error);
-      alert("Erreur de connexion.");
+      console.error("Erreur détaillée:", error);
+      alert("Erreur de connexion. Vérifie que ton fichier pages/api/agent.js existe bien.");
     } finally {
       setLoading(false);
     }
@@ -118,7 +125,8 @@ export default function Agent() {
               onChange={(e) => setMessage(e.target.value)}
               style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
             />
-            {/* BOUTON MICROPHONE INTÉGRÉ */}
+            
+            {/* BOUTON MICROPHONE */}
             <button 
               type="button" 
               onClick={startListening}
