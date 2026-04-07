@@ -14,7 +14,6 @@ export default function Agent() {
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
-  // Vérification de connexion
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) router.push('/login');
@@ -22,7 +21,6 @@ export default function Agent() {
     });
   }, [router]);
 
-  // LE MICROPHONE EST DE RETOUR ET SÉCURISÉ
   const startListening = () => {
     try {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -65,18 +63,14 @@ export default function Agent() {
 
       const data = await response.json();
 
-      // SÉCURITÉ ABSOLUE : Ça marche même si l'API est sur l'ancienne version !
       if (response.ok && data.analyse) {
         let lignesArray = [];
         let totalAffiche = 0;
 
-        // Si l'IA a bien fait les lignes séparées
         if (data.analyse.lignes && data.analyse.lignes.length > 0) {
           lignesArray = data.analyse.lignes;
           totalAffiche = data.analyse.montant_total || lignesArray.reduce((sum, l) => sum + Number(l.prix), 0);
-        } 
-        // Si l'IA a fait l'ancien format (1 seule ligne globale)
-        else {
+        } else {
           lignesArray = [{ 
             description: data.analyse.description || "Prestation", 
             prix: data.analyse.montant || 0 
@@ -85,17 +79,31 @@ export default function Agent() {
         }
 
         const lignesTexte = JSON.stringify(lignesArray);
+        const nomClient = data.analyse.nom_client || 'Client Anonyme';
+
+        // 🚨 LA MAGIE OPÈRE ICI : ON SAUVEGARDE DEPUIS TON COMPTE, SUPABASE VA ACCEPTER !
+        if (session?.user?.id) {
+          await supabase
+            .from('devis')
+            .insert({
+              artisan_id: session.user.id,
+              nom_client: nomClient,
+              metier: 'Multiservice',
+              montant: totalAffiche,
+              description: lignesTexte
+            });
+        }
         
         router.push({
           pathname: '/devis',
           query: { 
-            nom: data.analyse.nom_client || 'Client Anonyme', 
+            nom: nomClient, 
             total: totalAffiche,
             lignes: lignesTexte
           }
         });
       } else {
-        alert("L'IA n'a pas pu traiter la demande. Vérifie l'historique.");
+        alert("L'IA n'a pas pu traiter la demande.");
       }
     } catch (error) {
       alert("Erreur de connexion.");
@@ -124,7 +132,6 @@ export default function Agent() {
               onChange={(e) => setMessage(e.target.value)}
               style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
             />
-            {/* LE BOUTON MICROPHONE ROUGE/BLEU EST LÀ */}
             <button 
               type="button" 
               onClick={startListening}
