@@ -36,9 +36,7 @@ export default function Agent() {
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
+      recognition.onstart = () => setIsListening(true);
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -50,11 +48,9 @@ export default function Agent() {
         setIsListening(false);
       };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
+      recognition.onend = () => setIsListening(false);
       recognition.start();
+
     } catch (error) {
       alert("Impossible de lancer le micro : " + error.message);
     }
@@ -68,7 +64,6 @@ export default function Agent() {
     setLoading(true);
 
     try {
-      // C'EST ICI LA CORRECTION : on appelle /api/agent (ton vrai fichier)
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,14 +75,15 @@ export default function Agent() {
 
       const data = await response.json();
 
-      if (response.ok && data.devis) {
+      // C'EST ICI LA CORRECTION MAJEURE (data.analyse au lieu de data.devis)
+      if (response.ok && data.analyse) {
         router.push({
           pathname: '/devis',
           query: { 
-            nom: data.devis.nom_client, 
-            metier: data.devis.metier, 
-            montant: data.devis.montant, 
-            desc: data.devis.description 
+            nom: data.analyse.nom_client, 
+            metier: data.analyse.metier, 
+            montant: data.analyse.montant, 
+            desc: data.analyse.description 
           }
         });
       } else {
@@ -96,7 +92,7 @@ export default function Agent() {
       }
     } catch (error) {
       console.error("Erreur détaillée:", error);
-      alert("Erreur de connexion. Vérifie que ton fichier pages/api/agent.js existe bien.");
+      alert("Erreur de connexion avec le serveur IA.");
     } finally {
       setLoading(false);
     }
@@ -162,6 +158,10 @@ export default function Agent() {
             {loading ? 'Création en cours...' : '✨ Générer le devis'}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
       </div>
     </div>
   );
