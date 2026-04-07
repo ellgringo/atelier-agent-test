@@ -9,6 +9,7 @@ const supabase = createClient(
 
 export default function Devis() {
   const router = useRouter();
+  
   // On récupère les nouvelles données de l'IA (nom, total, et le tableau des lignes)
   const { nom, total, lignes } = router.query;
   const [profil, setProfil] = useState({ entreprise_nom: 'Artisan', siret: 'En cours' });
@@ -31,8 +32,8 @@ export default function Devis() {
     <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', fontFamily: 'system-ui', background: 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
       
       <div className="print-hidden" style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-        <button onClick={() => router.push('/dashboard')} style={{ padding: '10px 20px', cursor: 'pointer' }}>⬅ Retour</button>
-        <button onClick={() => window.print()} style={{ background: '#2980b9', color: 'white', padding: '10px 20px', cursor: 'pointer' }}>🖨️ Imprimer PDF</button>
+        <button onClick={() => router.push('/dashboard')} style={{ padding: '10px 20px', cursor: 'pointer', borderRadius: '8px', border: '1px solid #ccc' }}>⬅ Retour</button>
+        <button onClick={() => window.print()} style={{ background: '#2980b9', color: 'white', padding: '10px 20px', cursor: 'pointer', borderRadius: '8px', border: 'none' }}>🖨️ Imprimer PDF</button>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #eee', paddingBottom: '20px', marginBottom: '30px' }}>
@@ -48,7 +49,7 @@ export default function Devis() {
         </div>
       </div>
 
-      <div style={{ marginBottom: '40px', padding: '20px', background: '#f8f9fa', display: 'inline-block', minWidth: '300px' }}>
+      <div style={{ marginBottom: '40px', padding: '20px', background: '#f8f9fa', display: 'inline-block', minWidth: '300px', borderRadius: '8px' }}>
         <h3 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>CLIENT :</h3>
         <p style={{ margin: '0', fontSize: '18px', fontWeight: 'bold' }}>{nom || 'Client Anonyme'}</p>
       </div>
@@ -56,8 +57,8 @@ export default function Devis() {
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
         <thead>
           <tr style={{ background: '#34495e', color: 'white' }}>
-            <th style={{ padding: '15px', textAlign: 'left' }}>Description des travaux</th>
-            <th style={{ padding: '15px', textAlign: 'right' }}>Prix TTC</th>
+            <th style={{ padding: '15px', textAlign: 'left', borderRadius: '8px 0 0 8px' }}>Description des travaux</th>
+            <th style={{ padding: '15px', textAlign: 'right', borderRadius: '0 8px 8px 0' }}>Prix TTC</th>
           </tr>
         </thead>
         <tbody>
@@ -72,9 +73,17 @@ export default function Devis() {
       </table>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ width: '300px', background: '#e8f4f8', padding: '20px' }}>
+        <div style={{ width: '300px', background: '#e8f4f8', padding: '20px', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: '#7f8c8d' }}>
+            <span>Total HT :</span>
+            <span>{total ? (Number(total) * 0.8).toFixed(2) : '0.00'} €</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', color: '#7f8c8d', borderBottom: '1px solid #bdc3c7', paddingBottom: '15px' }}>
+            <span>TVA (20%) :</span>
+            <span>{total ? (Number(total) * 0.2).toFixed(2) : '0.00'} €</span>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>NET À PAYER :</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c3e50' }}>NET À PAYER :</span>
             <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>{total || '0'} €</span>
           </div>
         </div>
