@@ -1,131 +1,117 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialiser Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rzuouakyvryuzfurryjk.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rzuouakyvryuzfurryjk.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function Dashboard() {
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [devisList, setDevisList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [historique, setHistorique] = useState([]);
 
-  // 1. Vérifier si l'utilisateur est connecté
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         router.push('/login');
       } else {
         setSession(session);
-        fetchDevis(session.user.id); // Charger les devis si connecté
+        chargerHistorique(session.user.id);
       }
     });
   }, [router]);
 
-  // 2. Fonction pour récupérer les devis dans la base de données
-  async function fetchDevis(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('devis')
-        .select('*')
-        .eq('artisan_id', userId)
-        .order('date_creation', { ascending: false }); // Du plus récent au plus ancien
+  async function chargerHistorique(userId) {
+    const { data, error } = await supabase
+      .from('devis')
+      .select('*')
+      .eq('artisan_id', userId)
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setDevisList(data || []);
-    } catch (error) {
-      console.error('Erreur récupération devis:', error.message);
-    } finally {
-      setLoading(false);
-    }
+    if (data) setHistorique(data);
   }
-
-  // 3. Fonction pour re-générer le visuel du devis en cliquant dessus
-  const voirDevis = (devis) => {
-    router.push({
-      pathname: '/devis',
-      query: { 
-        nom: devis.nom_client, 
-        metier: devis.metier, 
-        montant: devis.montant, 
-        desc: devis.description 
-      }
-    });
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
 
-  if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Chargement de tes devis... ⏳</div>;
+  // Permet de rouvrir un ancien devis
+  const ouvrirAncienDevis = (devis) => {
+    // Si on a les nouvelles 'lignes' en JSON dans la description
+    let lignesAEnvoyer = "";
+    if (devis.description && devis.description.startsWith('[')) {
+      lignesAEnvoyer = devis.description;
+    } else {
+      // Si c'est un très vieux devis avec juste du texte
+      lignesAEnvoyer = JSON.stringify([{ description: devis.description || "Ancien devis", prix: devis.montant }]);
+    }
+
+    router.push({
+      pathname: '/devis',
+      query: { 
+        nom: devis.nom_client, 
+        total: devis.montant,
+        lignes: lignesAEnvoyer
+      }
+    });
+  };
+
+  if (!session) return <p style={{ textAlign: 'center', marginTop: '50px' }}>Chargement...</p>;
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, sans-serif', background: '#f4f7f6', minHeight: '100vh' }}>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px', fontFamily: 'system-ui' }}>
       
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-        <div>
-          <h1 style={{ margin: '0', color: '#2c3e50', fontSize: '24px' }}>Mon Tableau de bord</h1>
-          <p style={{ margin: '5px 0 0 0', color: '#7f8c8d', fontSize: '14px' }}>👤 {session?.user?.email}</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => router.push('/agent')} style={{ background: '#3498db', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold' }}>
-            + Nouveau Devis
-          </button>
-          <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '20px', cursor: 'pointer' }}>
-            Déconnexion
-          </button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1>🏠 Tableau de bord</h1>
+        <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer' }}>
+          Déconnexion
+        </button>
       </div>
 
-      {/* LISTE DES DEVIS */}
-      <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ marginTop: '0', color: '#34495e', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>📄 Historique de mes devis</h2>
-        
-        {devisList.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#95a5a6' }}>
-            <p>Tu n'as généré aucun devis pour le moment.</p>
-            <p>Va sur l'Agent IA pour créer ton premier devis à la voix !</p>
-          </div>
+      <p>Bienvenue, <strong>{session.user.email}</strong> !</p>
+
+      {/* ZONE DES BOUTONS D'ACTION */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '40px', marginTop: '20px' }}>
+        <button 
+          onClick={() => router.push('/agent')} 
+          style={{ flex: 1, background: '#3498db', color: 'white', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '18px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
+          ✨ Créer un nouveau devis avec l'IA
+        </button>
+
+        {/* NOUVEAU BOUTON PROFIL ICI */}
+        <button 
+          onClick={() => router.push('/profil')} 
+          style={{ flex: 1, background: '#2c3e50', color: 'white', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '18px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
+          🏢 Mon Entreprise (Profil)
+        </button>
+      </div>
+
+      <h2>📂 Historique de tes devis</h2>
+      <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+        {historique.length === 0 ? (
+          <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Aucun devis généré pour le moment.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
-            {devisList.map((devis) => (
-              <div 
-                key={devis.id} 
-                onClick={() => voirDevis(devis)}
-                style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  padding: '15px', 
-                  background: '#f8f9fa', 
-                  borderRadius: '8px', 
-                  cursor: 'pointer',
-                  borderLeft: '4px solid #3498db',
-                  transition: 'background 0.2s'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#e8f4f8'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#f8f9fa'}
-              >
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {historique.map((devis) => (
+              <li key={devis.id} style={{ borderBottom: '1px solid #eee', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <strong style={{ display: 'block', color: '#2c3e50', fontSize: '16px' }}>Client : {devis.nom_client}</strong>
-                  <span style={{ color: '#7f8c8d', fontSize: '14px' }}>
-                    📅 {new Date(devis.date_creation).toLocaleDateString('fr-FR')} • {devis.description?.substring(0, 30)}...
-                  </span>
+                  <strong>{devis.nom_client}</strong> - {new Date(devis.created_at).toLocaleDateString('fr-FR')}
+                  <br/>
+                  <span style={{ color: '#7f8c8d', fontSize: '14px' }}>Montant : {devis.montant} €</span>
                 </div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#27ae60' }}>
-                  {devis.montant} €
-                </div>
-              </div>
+                <button 
+                  onClick={() => ouvrirAncienDevis(devis)}
+                  style={{ background: '#f1f2f6', border: '1px solid #dcdde1', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', color: '#2c3e50' }}>
+                  📄 Voir le PDF
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
+
     </div>
   );
 }
