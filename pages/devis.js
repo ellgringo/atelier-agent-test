@@ -1,81 +1,105 @@
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import React from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rzuouakyvryuzfurryjk.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function Devis() {
   const router = useRouter();
   const { nom, metier, montant, desc } = router.query;
+  const [profil, setProfil] = useState(null);
 
-  // Si la page charge
-  if (!nom) return <div style={{ padding: '50px', textAlign: 'center' }}>Génération du devis en cours... ⏳</div>;
+  useEffect(() => {
+    async function fetchProfil() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (data) setProfil(data);
+      }
+    }
+    fetchProfil();
+  }, []);
+
+  const imprimer = () => window.print();
 
   return (
-    <div style={{ background: '#f4f7f6', minHeight: '100vh', padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', fontFamily: 'system-ui, sans-serif', background: 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', borderRadius: '8px' }}>
       
-      <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '40px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-        
-        {/* En-tête */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #eee', paddingBottom: '20px', marginBottom: '30px' }}>
-          <div>
-            <h1 style={{ margin: '0', color: '#2c3e50', fontSize: '32px' }}>DEVIS</h1>
-            <p style={{ color: '#7f8c8d', margin: '5px 0 0 0' }}>Date : {new Date().toLocaleDateString('fr-FR')}</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <h2 style={{ margin: '0', color: '#3498db', textTransform: 'capitalize' }}>Artisan {metier}</h2>
-            <p style={{ color: '#7f8c8d', margin: '5px 0 0 0' }}>N° SIRET : En cours</p>
-          </div>
-        </div>
-
-        {/* Info Client */}
-        <div style={{ marginBottom: '40px', background: '#f8f9fa', padding: '15px', borderRadius: '6px' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#2c3e50', fontSize: '16px' }}>Client :</h3>
-          <p style={{ margin: '0', fontSize: '18px', fontWeight: 'bold' }}>Monsieur / Madame {nom}</p>
-        </div>
-
-        {/* Détail des travaux */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
-          <thead>
-            <tr style={{ background: '#2c3e50', color: 'white' }}>
-              <th style={{ padding: '12px', textAlign: 'left', borderRadius: '6px 0 0 0' }}>Description des travaux</th>
-              <th style={{ padding: '12px', textAlign: 'right', borderRadius: '0 6px 0 0' }}>Total TTC</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '15px 12px', color: '#34495e' }}>{desc}</td>
-              <td style={{ padding: '15px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '18px' }}>{montant} €</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Total */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ background: '#e8f4f8', padding: '20px', borderRadius: '8px', minWidth: '250px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ color: '#7f8c8d' }}>Total HT :</span>
-              <span>{(montant * 0.8).toFixed(2)} €</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ color: '#7f8c8d' }}>TVA (20%) :</span>
-              <span>{(montant * 0.2).toFixed(2)} €</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #bdc3c7', paddingTop: '10px', marginTop: '10px' }}>
-              <strong style={{ fontSize: '20px' }}>NET À PAYER :</strong>
-              <strong style={{ fontSize: '20px', color: '#27ae60' }}>{montant} €</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Bouton d'action (caché à l'impression) */}
-        <div style={{ marginTop: '50px', textAlign: 'center' }}>
-          <button 
-            onClick={() => window.print()} 
-            style={{ background: '#2c3e50', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '25px', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            🖨️ Imprimer / Sauvegarder en PDF
-          </button>
-        </div>
-
+      <div className="print-hidden" style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+        <button onClick={() => router.push('/dashboard')} style={{ background: '#7f8c8d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>
+          ⬅ Retour
+        </button>
+        <button onClick={imprimer} style={{ background: '#2980b9', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          🖨️ Imprimer / Sauvegarder en PDF
+        </button>
       </div>
+
+      {/* EN-TÊTE DU DEVIS CORRIGÉ */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #eee', paddingBottom: '20px', marginBottom: '30px' }}>
+        <div>
+          <h1 style={{ margin: '0', color: '#2c3e50', fontSize: '24px' }}>
+            {profil?.entreprise_nom || 'Mon Entreprise'}
+          </h1>
+          {profil?.entreprise_adresse && <p style={{ margin: '5px 0', color: '#7f8c8d' }}>📍 {profil.entreprise_adresse}</p>}
+          {profil?.telephone && <p style={{ margin: '5px 0', color: '#7f8c8d' }}>📞 {profil.telephone}</p>}
+          {profil?.siret && <p style={{ margin: '5px 0', color: '#7f8c8d' }}>🏢 SIRET : {profil.siret}</p>}
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <h2 style={{ margin: '0', color: '#3498db', fontSize: '32px', textTransform: 'uppercase', letterSpacing: '2px' }}>Devis</h2>
+          <p style={{ margin: '10px 0 0 0', color: '#7f8c8d' }}>Date : {new Date().toLocaleDateString('fr-FR')}</p>
+        </div>
+      </div>
+
+      {/* INFO CLIENT */}
+      <div style={{ marginBottom: '40px', padding: '20px', background: '#f8f9fa', borderRadius: '8px', display: 'inline-block', minWidth: '300px' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#7f8c8d', fontSize: '14px', textTransform: 'uppercase' }}>Devis pour :</h3>
+        <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#2c3e50' }}>{nom || 'Client Anonyme'}</p>
+      </div>
+
+      {/* TABLEAU */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
+        <thead>
+          <tr style={{ background: '#2c3e50', color: 'white' }}>
+            <th style={{ padding: '15px', textAlign: 'left', borderRadius: '8px 0 0 8px' }}>Description de la prestation</th>
+            <th style={{ padding: '15px', textAlign: 'right', borderRadius: '0 8px 8px 0', width: '150px' }}>Prix TTC</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ padding: '20px 15px', borderBottom: '1px solid #eee', color: '#34495e', lineHeight: '1.6' }}>
+              {desc || `Prestation de ${metier}`}
+            </td>
+            <td style={{ padding: '20px 15px', borderBottom: '1px solid #eee', textAlign: 'right', fontWeight: 'bold', fontSize: '18px', color: '#2c3e50' }}>
+              {montant || '0'} €
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* TOTAL */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ width: '300px', background: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '18px', color: '#7f8c8d' }}>Total à payer</span>
+            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>{montant || '0'} €</span>
+          </div>
+        </div>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          body { background: white !important; }
+          .print-hidden { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
