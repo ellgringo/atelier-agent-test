@@ -2,151 +2,113 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
+// Initialiser Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rzuouakyvryuzfurryjk.supabase.co',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export default function AgentArtisan() {
+export default function Devis() {
   const router = useRouter();
-  const [session, setSession] = useState(null);
-  
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [reponse, setReponse] = useState('');
-  const [ecoute, setEcoute] = useState(false);
-  const [recognition, setRecognition] = useState(null);
+  const { nom, metier, montant, desc } = router.query;
+  const [profil, setProfil] = useState(null);
 
-  // VÉRIFICATION DE LA CONNEXION
+  // Récupérer le profil de l'artisan connecté
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push('/login');
-      } else {
-        setSession(session);
+    async function fetchProfil() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (data) setProfil(data);
       }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.push('/login');
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [router]);
-
-  // INITIALISATION DU MICRO
-  useEffect(() => {
-    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const rec = new SpeechRecognition();
-      rec.lang = 'fr-FR';
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-      
-      rec.onresult = (event) => {
-        setMessage(event.results[0][0].transcript);
-        setEcoute(false);
-      };
-      
-      rec.onerror = () => {
-        setEcoute(false);
-        alert("Erreur de reconnaissance vocale. Réessaie !");
-      };
-      
-      setRecognition(rec);
     }
+    fetchProfil();
   }, []);
 
-  async function envoyerMessage(e) {
-    e.preventDefault();
-    if (!message.trim()) return;
-
-    setLoading(true);
-    setReponse('');
-    
-    try {
-      const res = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message, userId: session?.user?.id })
-      });
-
-      const data = await res.json();
-      
-      if (data.success) {
-        const { nom_client, metier, montant, description } = data.analyse;
-        router.push({
-          pathname: '/devis',
-          query: { nom: nom_client, metier: metier, montant: montant, desc: description }
-        });
-      } else {
-        setReponse("❌ Erreur : " + (data.error || "Problème API"));
-        setLoading(false);
-      }
-    } catch (error) {
-      setReponse("❌ Impossible de joindre l'IA.");
-      setLoading(false);
-    } 
-  }
-
-  function toggleEcoute() {
-    if (!recognition) return alert("Reconnaissance vocale non supportée sur ce navigateur");
-    if (ecoute) { recognition.stop(); setEcoute(false); } 
-    else { recognition.start(); setEcoute(true); }
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const imprimer = () => {
+    window.print();
   };
 
-  if (!session) return <div style={{ padding: '50px', textAlign: 'center' }}>Vérification de la connexion... ⏳</div>;
-
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, sans-serif', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f4f7f6' }}>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', fontFamily: 'system-ui, sans-serif', background: 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', borderRadius: '8px' }}>
       
-      {/* HEADER AVEC BOUTON PROFIL */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', background: 'white', padding: '15px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-        <div style={{ fontSize: '14px', color: '#7f8c8d' }}>👤 {session.user.email}</div>
-        <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '20px', cursor: 'pointer', fontSize: '14px' }}>
-          Déconnexion
+      {/* BOUTON IMPRIMER (Invisible à l'impression) */}
+      <div className="print-hidden" style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+        <button onClick={() => router.push('/dashboard')} style={{ background: '#7f8c8d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>
+          ⬅ Retour
+        </button>
+        <button onClick={imprimer} style={{ background: '#2980b9', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          🖨️ Imprimer / Sauvegarder en PDF
         </button>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <h1 style={{ color: '#2c3e50', fontSize: '24px', margin: '0' }}>🛠️ Ton Assistant IA</h1>
-        <p style={{ color: '#7f8c8d', margin: '5px 0' }}>Dicte-moi ce que tu veux facturer</p>
+      {/* EN-TÊTE DU DEVIS */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #eee', paddingBottom: '20px', marginBottom: '30px' }}>
+        <div>
+          {/* C'EST ICI QUE TES INFOS APPARAISSENT */}
+          <h1 style={{ margin: '0', color: '#2c3e50', fontSize: '24px' }}>
+            {profil?.entreprise_nom || 'Mon Entreprise'}
+          </h1>
+          <p style={{ margin: '5px 0', color: '#7f8c8d' }}>{profil?.entreprise_adresse || 'Adresse à configurer dans le profil'}</p>
+          <p style={{ margin: '5px 0', color: '#7f8c8d' }}>Tél : {profil?.telephone || 'Non renseigné'}</p>
+          <p style={{ margin: '5px 0', color: '#7f8c8d' }}>SIRET : {profil?.siret || 'Non renseigné'}</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <h2 style={{ margin: '0', color: '#3498db', fontSize: '32px', textTransform: 'uppercase', letterSpacing: '2px' }}>Devis</h2>
+          <p style={{ margin: '10px 0 0 0', color: '#7f8c8d' }}>Date : {new Date().toLocaleDateString('fr-FR')}</p>
+        </div>
       </div>
 
-      <div style={{ flex: 1, background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
-        <div style={{ background: '#e8f4f8', padding: '15px', borderRadius: '12px 12px 12px 0', alignSelf: 'flex-start', maxWidth: '85%' }}>
-          Bonjour ! Dicte-moi un devis ou une facture. Ex: "Devis 500€ peinture Dupont"
-        </div>
-
-        {reponse && (
-          <div style={{ background: '#e8f4f8', padding: '15px', borderRadius: '12px 12px 12px 0', alignSelf: 'flex-start', maxWidth: '85%' }}>
-            {reponse}
-          </div>
-        )}
-
-        {loading && (
-          <div style={{ alignSelf: 'center', color: '#95a5a6', fontStyle: 'italic' }}>
-            L'IA prépare ton document... ⏳
-          </div>
-        )}
+      {/* INFO CLIENT */}
+      <div style={{ marginBottom: '40px', padding: '20px', background: '#f8f9fa', borderRadius: '8px', display: 'inline-block', minWidth: '300px' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#7f8c8d', fontSize: '14px', textTransform: 'uppercase' }}>Devis pour :</h3>
+        <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#2c3e50' }}>{nom || 'Client Anonyme'}</p>
       </div>
 
-      <form onSubmit={envoyerMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <div style={{ display: 'flex', flex: 1, position: 'relative', background: 'white', borderRadius: '25px', padding: '5px 15px', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <input type="text" placeholder="Dicte ou tape ton message..." value={message} onChange={(e) => setMessage(e.target.value)} disabled={loading} style={{ flex: 1, padding: '12px 0', border: 'none', outline: 'none', fontSize: '16px' }} />
-          <button type="button" onClick={toggleEcoute} disabled={loading || !recognition} style={{ background: ecoute ? '#e74c3c' : '#3498db', color: 'white', border: 'none', width: '45px', height: '45px', borderRadius: '50%', cursor: recognition ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', opacity: recognition ? 1 : 0.5 }} title="Dictée vocale">
-            {ecoute ? '⏹️' : '🎤'}
-          </button>
+      {/* TABLEAU DES PRESTATIONS */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
+        <thead>
+          <tr style={{ background: '#2c3e50', color: 'white' }}>
+            <th style={{ padding: '15px', textAlign: 'left', borderRadius: '8px 0 0 8px' }}>Description de la prestation</th>
+            <th style={{ padding: '15px', textAlign: 'right', borderRadius: '0 8px 8px 0', width: '150px' }}>Prix TTC</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ padding: '20px 15px', borderBottom: '1px solid #eee', color: '#34495e', lineHeight: '1.6' }}>
+              {desc || `Prestation de ${metier}`}
+            </td>
+            <td style={{ padding: '20px 15px', borderBottom: '1px solid #eee', textAlign: 'right', fontWeight: 'bold', fontSize: '18px', color: '#2c3e50' }}>
+              {montant || '0'} €
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* TOTAL */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ width: '300px', background: '#f8f9fa', padding: '20px', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '18px', color: '#7f8c8d' }}>Total à payer</span>
+            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>{montant || '0'} €</span>
+          </div>
+          <p style={{ fontSize: '11px', color: '#95a5a6', marginTop: '10px', textAlign: 'right' }}>
+            TVA non applicable, art. 293 B du CGI
+          </p>
         </div>
-        <button type="submit" disabled={loading || !message.trim()} style={{ background: message.trim() ? '#27ae60' : '#bdc3c7', color: 'white', border: 'none', padding: '0 25px', borderRadius: '25px', cursor: message.trim() ? 'pointer' : 'not-allowed', fontWeight: 'bold', height: '55px' }}>
-          Générer 📄
-        </button>
-      </form>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          body { background: white !important; }
+          .print-hidden { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
