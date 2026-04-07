@@ -10,8 +10,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Seulement POST' });
   }
 
-  // NOUVEAU : On récupère AUSSI le userId (l'id de l'artisan)
-  const { message, userId } = req.body;
+  // 🐛 LA CORRECTION EST ICI : on lit "prompt" (pas "message") !
+  const { prompt, userId } = req.body;
 
   try {
     const OpenAI = (await import('openai')).default;
@@ -24,53 +24,43 @@ export default async function handler(req, res) {
       messages: [
         {
           role: 'system',
-          content: `Tu analyses les messages d'artisans français. Extrait :
-- NOM_CLIENT (ex: Dupont)
-- METIER (plombier, maçon...)
-- MONTANT (chiffre uniquement)
-- DESCRIPTION (travaux)
-
-Réponds JSON pur : {"nom_client":"Dupont","metier":"plombier","montant":450,"description":"Changement chaudière"}`
+          content: `Tu analyses les demandes de devis. Extrait les infos suivantes:
+- nom_client (ex: Dupont)
+- metier (ex: plombier)
+- montant (nombre uniquement)
+- description (résumé court)
+Réponds UNIQUEMENT au format JSON strict.`
         },
-        { role: 'user', content: message }
+        { role: 'user', content: prompt || "Message vide" }
       ],
+      response_format: { type: "json_object" }, // Sécurité pour forcer le bon format
       temperature: 0
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
 
-    // --- SAUVEGARDE SUPABASE ICI ---
+    // --- SAUVEGARDE SUPABASE ---
     if (userId) {
-      console.log("Tentative de sauvegarde pour l'artisan:", userId);
-      const { error: dbError } = await supabase
+      await supabase
         .from('devis')
         .insert({
           artisan_id: userId,
           nom_client: result.nom_client || 'Client Inconnu',
           metier: result.metier || 'Non précisé',
           montant: Number(result.montant) || 0,
-          description: result.description || message
+          description: result.description || prompt
         });
-      
-      if (dbError) {
-        console.error("❌ Erreur sauvegarde DB:", dbError);
-      } else {
-        console.log("✅ Devis sauvegardé !");
-      }
-    } else {
-      console.log("⚠️ Aucun userId fourni, devis non sauvegardé.");
     }
-    // -------------------------------
     
-    res.json({ 
+    // On renvoie bien 'analyse' au site web
+    res.status(200).json({ 
       success: true,
-      analyse: result,
-      reponse: `✅ Devis ${result.montant || '?'}€ pour ${result.nom_client || 'client'} (${result.metier})`
+      analyse: result 
     });
 
   } catch (error) {
     console.error("ERREUR:", error);
-    res.json({ 
+    res.status(500).json({ 
       success: false,
       error: error.message || 'Erreur inconnue API'
     });
