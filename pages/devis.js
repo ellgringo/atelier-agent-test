@@ -10,19 +10,32 @@ const supabase = createClient(
 export default function Devis() {
   const router = useRouter();
   
-  // On récupère les nouvelles données de l'IA (nom, total, et le tableau des lignes)
+  // On récupère les données passées dans l'URL par la page Agent
   const { nom, total, lignes } = router.query;
   const [profil, setProfil] = useState({ entreprise_nom: 'Artisan', siret: 'En cours' });
   
-  // On re-transforme le texte des lignes en un vrai tableau Javascript
-  const lignesDevis = lignes ? JSON.parse(lignes) : [{ description: 'Prestation globale', prix: total || 0 }];
+  // Transformation du texte des lignes en un tableau manipulable.
+  // Si pour une raison ou une autre "lignes" est vide, on met un contenu par défaut.
+  let lignesDevis = [];
+  try {
+    lignesDevis = lignes ? JSON.parse(lignes) : [{ description: 'Prestation globale', prix: total || 0 }];
+  } catch (e) {
+    lignesDevis = [{ description: 'Erreur de lecture des lignes', prix: total || 0 }];
+  }
 
   useEffect(() => {
     async function loadProfile() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-        if (data) setProfil({ ...data, entreprise_nom: data.entreprise_nom || 'Artisan', siret: data.siret || 'En cours' });
+        if (data) {
+            setProfil({ 
+                entreprise_nom: data.entreprise_nom || 'Artisan', 
+                entreprise_adresse: data.entreprise_adresse || '',
+                telephone: data.telephone || '',
+                siret: data.siret || 'En cours' 
+            });
+        }
       }
     }
     loadProfile();
@@ -62,7 +75,7 @@ export default function Devis() {
           </tr>
         </thead>
         <tbody>
-          {/* C'EST ICI LA MAGIE : On dessine autant de lignes que l'IA en a généré */}
+          {/* AFFICHAGE DES LIGNES MULTIPLES GÉNÉRÉES PAR L'IA */}
           {lignesDevis.map((ligne, index) => (
             <tr key={index}>
               <td style={{ padding: '15px', borderBottom: '1px solid #eee' }}>{ligne.description}</td>
