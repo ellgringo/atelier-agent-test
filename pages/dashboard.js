@@ -10,6 +10,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [historique, setHistorique] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -23,13 +24,23 @@ export default function Dashboard() {
   }, [router]);
 
   async function chargerHistorique(userId) {
-    const { data, error } = await supabase
-      .from('devis')
-      .select('*')
-      .eq('artisan_id', userId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('devis')
+        .select('*')
+        .eq('artisan_id', userId)
+        .order('created_at', { ascending: false });
 
-    if (data) setHistorique(data);
+      if (error) {
+        console.error("Erreur de chargement:", error);
+      } else if (data) {
+        setHistorique(data);
+      }
+    } catch (err) {
+      console.error("Erreur inattendue:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleLogout = async () => {
@@ -37,23 +48,27 @@ export default function Dashboard() {
     router.push('/login');
   };
 
-  // Permet de rouvrir un ancien devis
-  const ouvrirAncienDevis = (devis) => {
-    // Si on a les nouvelles 'lignes' en JSON dans la description
-    let lignesAEnvoyer = "";
-    if (devis.description && devis.description.startsWith('[')) {
-      lignesAEnvoyer = devis.description;
+  const relancerDevis = (devisItem) => {
+    // Si c'est un nouveau devis avec le tableau JSON
+    let lignesData = "";
+    if (devisItem.description && devisItem.description.startsWith('[')) {
+      lignesData = devisItem.description;
     } else {
-      // Si c'est un très vieux devis avec juste du texte
-      lignesAEnvoyer = JSON.stringify([{ description: devis.description || "Ancien devis", prix: devis.montant }]);
+      // Ancien devis (avant la mise à jour)
+      lignesData = JSON.stringify([
+        { description: devisItem.description || "Prestation globale", prix: devisItem.montant }
+      ]);
     }
 
     router.push({
       pathname: '/devis',
       query: { 
-        nom: devis.nom_client, 
-        total: devis.montant,
-        lignes: lignesAEnvoyer
+        nom: devisItem.nom_client, 
+        metier: devisItem.metier, 
+        montant: devisItem.montant, 
+        desc: devisItem.description,
+        total: devisItem.montant, // Pour la nouvelle version de devis.js
+        lignes: lignesData        // Pour la nouvelle version de devis.js
       }
     });
   };
@@ -61,51 +76,64 @@ export default function Dashboard() {
   if (!session) return <p style={{ textAlign: 'center', marginTop: '50px' }}>Chargement...</p>;
 
   return (
-    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px', fontFamily: 'system-ui' }}>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
       
+      {/* En-tête */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>🏠 Tableau de bord</h1>
+        <h1 style={{ margin: 0 }}>🏠 Tableau de bord</h1>
         <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer' }}>
           Déconnexion
         </button>
       </div>
 
-      <p>Bienvenue, <strong>{session.user.email}</strong> !</p>
+      <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}>
+        <p style={{ margin: 0 }}>Bienvenue, <strong>{session.user.email}</strong> !</p>
+      </div>
 
-      {/* ZONE DES BOUTONS D'ACTION */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '40px', marginTop: '20px' }}>
+      {/* NOUVELLE ZONE DES BOUTONS */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
+        {/* BOUTON ASSISTANT IA */}
         <button 
           onClick={() => router.push('/agent')} 
           style={{ flex: 1, background: '#3498db', color: 'white', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '18px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
-          ✨ Créer un nouveau devis avec l'IA
+          ✨ Créer un devis avec l'IA
         </button>
 
-        {/* NOUVEAU BOUTON PROFIL ICI */}
+        {/* NOUVEAU BOUTON PROFIL */}
         <button 
           onClick={() => router.push('/profil')} 
           style={{ flex: 1, background: '#2c3e50', color: 'white', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '18px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
-          🏢 Mon Entreprise (Profil)
+          🏢 Mon Entreprise
         </button>
       </div>
 
+      {/* HISTORIQUE */}
       <h2>📂 Historique de tes devis</h2>
       <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        {historique.length === 0 ? (
+        
+        {loading ? (
+          <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Chargement de l'historique...</p>
+        ) : historique.length === 0 ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>Aucun devis généré pour le moment.</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {historique.map((devis) => (
-              <li key={devis.id} style={{ borderBottom: '1px solid #eee', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {historique.map((item) => (
+              <li key={item.id} style={{ borderBottom: '1px solid #eee', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <strong>{devis.nom_client}</strong> - {new Date(devis.created_at).toLocaleDateString('fr-FR')}
-                  <br/>
-                  <span style={{ color: '#7f8c8d', fontSize: '14px' }}>Montant : {devis.montant} €</span>
+                  <strong style={{ fontSize: '16px', color: '#2c3e50' }}>{item.nom_client}</strong>
+                  <br />
+                  <span style={{ color: '#7f8c8d', fontSize: '14px' }}>
+                    {new Date(item.created_at).toLocaleDateString('fr-FR')} - {item.metier}
+                  </span>
                 </div>
-                <button 
-                  onClick={() => ouvrirAncienDevis(devis)}
-                  style={{ background: '#f1f2f6', border: '1px solid #dcdde1', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', color: '#2c3e50' }}>
-                  📄 Voir le PDF
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#27ae60', fontSize: '16px' }}>{item.montant} €</span>
+                  <button 
+                    onClick={() => relancerDevis(item)}
+                    style={{ background: '#f1f2f6', border: '1px solid #dcdde1', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', color: '#2c3e50', fontWeight: 'bold' }}>
+                    📄 Voir PDF
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
